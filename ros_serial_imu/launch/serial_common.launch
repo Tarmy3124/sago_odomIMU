@@ -1,0 +1,12 @@
+<launch>
+  
+  <!-- decision and plan node -->
+  
+ 
+
+   <node pkg="odom_serial" type="serial_example_node1" name="serial_example_node1" respawn="true" output="screen">
+ 
+  </node>
+
+  
+</launch>
