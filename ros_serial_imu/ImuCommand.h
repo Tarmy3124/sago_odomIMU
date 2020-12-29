@@ -17,7 +17,7 @@
 #define IMUCOMMAND_H
 
 #include <iostream>
-#include "serial/serial.h"
+//#include "serial/serial.h"
 #include <ros/ros.h>
 #include <std_msgs/String.h>
 #include <std_msgs/Empty.h>
@@ -28,6 +28,14 @@
 //for odom
 #include <nav_msgs/Odometry.h>
 #include <tf/transform_broadcaster.h>
+
+//boost serial
+#include <boost/asio.hpp>
+#include <boost/asio/serial_port.hpp>
+#include <boost/system/error_code.hpp>
+#include <boost/system/system_error.hpp>
+#include <boost/bind.hpp>
+#include <boost/thread.hpp>
 
 #define CMD_FrameHead								   165		   //指令帧头
 #define READ_BUFFERSIZE                                 13         //读取数据数组长度
@@ -98,19 +106,20 @@ extern ros::Publisher msg_pub;
 extern ros::Subscriber pid_sub;
 //extern ros::Publisher odom_pub; 
 //extern tf::TransformBroadcaster odom_broadcaster;
+typedef boost::shared_ptr<boost::asio::serial_port> serialp_ptr;
 namespace IPSG
 {   
     
 	class CImuCommand
 	{
         
-        serial::Serial ser;
+        //serial::Serial ser;
 		sensor_msgs::Imu imu_data;
 	public:
 
 		CImuCommand(){};
 
-		~CImuCommand(){};
+		~CImuCommand();
                void float2char(float f,unsigned char *s);
                void char2float(float *f,unsigned char *s);
         
@@ -139,7 +148,7 @@ namespace IPSG
 		 *  @Descrip : 解码
 		 *  @Notes   : None
 		 ***********************************************/
-        bool decodeFrame(unsigned char tmpBuffer[READ_BUFFERSIZE]);
+               bool decodeFrame(unsigned char tmpBuffer[READ_BUFFERSIZE]);
 
 		/***********************************************
 		 *  @Name    : CImuCommand::display_Imumsg
@@ -154,7 +163,7 @@ namespace IPSG
 		 *  @Descrip : 串口初始化
 		 *  @Notes   : None
 		 ***********************************************/
-		bool serialInit();
+		//bool serialInit();
 
 		/***********************************************
 		 *  @Name    : CImuCommand::serialInit
@@ -179,7 +188,10 @@ namespace IPSG
         bool display_Q4decodeData(double tmpBuffer[Q4DATA_LENGTH]);
     private:
        // class Serial *mSerial;
-
+        bool init_serial(void);
+        boost::system::error_code ec_;
+        boost::asio::io_service io_service_;
+        serialp_ptr sp_;
 
 	public:
         unsigned char                pid_char_buffer[PIDCHAR_NUM];

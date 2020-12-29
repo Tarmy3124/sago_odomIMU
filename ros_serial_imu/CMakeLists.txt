@@ -4,7 +4,7 @@ project(odom_serial)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS roscpp rospy message_generation std_msgs serial carMsgs tf)
+find_package(catkin REQUIRED COMPONENTS roscpp  rospy message_generation std_msgs  carMsgs tf)
 
 
 
@@ -103,7 +103,6 @@ catkin_package(
 #  LIBRARIES serial_msgs
 	CATKIN_DEPENDS 
     message_runtime
-    serial
     std_msgs
     roscpp 
     rospy 

@@ -3,7 +3,37 @@
 ros::Publisher msg_pub;
 ros::Subscriber pid_sub;
 ros::Publisher odom_pub;  
+IPSG::CImuCommand::~CImuCommand(){
 
+     if(sp_)
+    {
+        sp_->cancel();
+        sp_->close();
+        sp_.reset();
+    }
+    io_service_.stop();
+    io_service_.reset();
+}
+bool IPSG::CImuCommand::init_serial(void)
+{
+if(sp_)
+    {
+        ROS_ERROR("The SerialPort is already opened!");
+        return false;
+    }
+     sp_ = serialp_ptr(new boost::asio::serial_port(io_service_));
+     sp_->open("/dev/ttyUSB0",ec_);
+     if(ec_)
+     {
+        ROS_ERROR_STREAM("error : port_->open() failed...port_name=" << "USBO"<< ", e=" << ec_.message().c_str());
+        return false;
+     }
+    sp_->set_option(boost::asio::serial_port_base::baud_rate(115200));
+    sp_->set_option(boost::asio::serial_port_base::character_size(8));
+    sp_->set_option(boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one));
+    sp_->set_option(boost::asio::serial_port_base::parity(boost::asio::serial_port_base::parity::none));
+    sp_->set_option(boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
+}
 //Convert float to char and send it through serial port
 void IPSG::CImuCommand::float2char(float f,unsigned char *s)
 {
@@ -178,7 +208,9 @@ bool IPSG::CImuCommand::cmdFrame(unsigned char imucmd)
 
     //ser.write(cmd_buffer,cmd_num);
     int i=0;
-    ser.read(r_buffer,READ_BUFFERSIZE);
+//tarmychange
+    //ser.read(r_buffer,READ_BUFFERSIZE);
+    boost::asio::read(*sp_.get(), boost::asio::buffer(r_buffer,READ_BUFFERSIZE), ec_);
     if(r_buffer[12]!=DATA_TYPE_STOP)
     {
       for (;i<26;i++)
@@ -186,7 +218,9 @@ bool IPSG::CImuCommand::cmdFrame(unsigned char imucmd)
       if(r_buffer[i]=DATA_TYPE_STOP)break;
 
      }
-    ser.read(r_buffer_helper,READ_BUFFERSIZE+i+1);
+//tarmychange
+    //ser.read(r_buffer_helper,READ_BUFFERSIZE+i+1);
+    boost::asio::read(*sp_.get(), boost::asio::buffer(r_buffer_helper,READ_BUFFERSIZE+i+1), ec_);
     r_buffer_handled=(&r_buffer_helper[i+1]);
     decodeFrame(r_buffer_handled);
    ROS_INFO("The message was truncated");
@@ -214,32 +248,6 @@ return true;
 }
 
 
-bool IPSG::CImuCommand::serialInit()
-{
-        try
-    {
-        ser.setPort("/dev/ttyUSB0");
-        ser.setBaudrate(115200);
-        serial::Timeout to = serial::Timeout::simpleTimeout(1000);
-        ser.setTimeout(to);
-        ser.open();
-    }
-    catch (serial::IOException& e)
-    {
-        ROS_ERROR_STREAM("Unable to open port ");
-        return -1;
-    }
-
-    if(ser.isOpen()){
-        ROS_INFO_STREAM("Serial Port initialized");
-       // cmdFrame(CMD_OUTPUT_200HZ);
-        //ser.write(cmd_buffer,cmd_num);
-    }else{
-        return -1;
-    }
-    return true;
-}
-
 void IPSG::CImuCommand::pid_write_callback(const carMsgs::pidPtr &pid_msg)
 {
      int i=0;
@@ -250,12 +258,16 @@ void IPSG::CImuCommand::pid_write_callback(const carMsgs::pidPtr &pid_msg)
      for (;i<3;i++){
      IPSG::CImuCommand::float2char(pid[i],&pid_char_buffer[4*i]);
      }
-     if(ser.isOpen()){
+  //tarmychange
+    if(ec_){
+        ROS_INFO("Serial Port has not been opened");
+      }else{
+
         ROS_INFO_STREAM("Serial Port initialized");
        // cmdFrame(CMD_OUTPUT_200HZ);
-        ser.write(pid_char_buffer,13);
-      }else{
-        ROS_INFO("Serial Port has not been opened");
+       //tarmychange
+        //ser.write(pid_char_buffer,13);
+       boost::asio::write(*sp_.get(),boost::asio::buffer(pid_char_buffer,13),ec_);
       }
 }
 bool IPSG::CImuCommand::RUN()
@@ -269,7 +281,7 @@ bool IPSG::CImuCommand::RUN()
     tf::TransformBroadcaster odom_broadcaster;
     pid_sub = nh.subscribe("pid_float",200,&IPSG::CImuCommand::pid_write_callback,this);
     //串口初始化
-    serialInit();
+    init_serial();
     ros::Rate loop_rate(500);
     pid_char_buffer[12]='\r';
     //for odom 
