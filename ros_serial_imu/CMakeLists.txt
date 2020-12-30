@@ -118,12 +118,12 @@ include_directories(
 #target_link_libraries(talker ${catkin_LIBRARIES})
 
 
-add_executable(serial_example_node1 serial_example_node1.cpp ImuCommand.cpp)
+add_executable(serial_odom_imu serial_example_node1.cpp ImuCommand.cpp)
 
 #add_executable(listen1 listen1.cpp)
 #target_link_libraries(listen1 ${catkin_LIBRARIES})
 
-target_link_libraries(serial_example_node1  ${catkin_LIBRARIES})
+target_link_libraries(serial_odom_imu ${catkin_LIBRARIES})
 
 #add_dependencies(listen1 serial_msgs_gencpp)
 #add_dependencies(serial_example_node1 serial_msgs_gencpp)

@@ -90,6 +90,11 @@ bool IPSG::CImuCommand::display_Imumsg(sensor_msgs::Imu imumsg)
     std::cout<<imumsg.linear_acceleration.x<<std::endl;
     std::cout<<imumsg.linear_acceleration.y<<std::endl;
     std::cout<<imumsg.linear_acceleration.z<<std::endl;
+
+    std::cout<<"Odom data-----------------!"<<std::endl;
+    std::cout<<Vx_float<<std::endl;
+    std::cout<<Vy_float<<std::endl;
+    std::cout<<Vz_float<<std::endl;
 }
 
 bool IPSG::CImuCommand::decodeFrame(unsigned char tmpBuffer[READ_BUFFERSIZE])
@@ -194,7 +199,18 @@ bool IPSG::CImuCommand::decodeFrame(unsigned char tmpBuffer[READ_BUFFERSIZE])
         std::cout<<"数据帧头错误"<<std::endl;
         return false;
     }
-                msg_pub.publish(imu_data);
+    imu_data.orientation = tf::createQuaternionMsgFromRollPitchYaw(0,0,imu_data.linear_acceleration.z);
+    imu_data.orientation_covariance = {0.05, 0, 0,
+	    			       0, 0.05, 0,
+				       0, 0, 0.05};
+    imu_data.angular_velocity_covariance = {0.01, 0, 0,
+	    				    0, 0.01, 0,
+					    0, 0, 0.01};
+    imu_data.linear_acceleration_covariance = {-1, 0, 0,
+	    				        0, 0, 0,
+					        0, 0, 0};
+
+    msg_pub.publish(imu_data);
     return true;
 }
 
@@ -277,7 +293,7 @@ bool IPSG::CImuCommand::RUN()
     int odom_count;
    // ros::Subscriber write_sub = nh.subscribe("write", 1000, write_callback);
     msg_pub = nh.advertise<sensor_msgs::Imu>("imu", 100);
-    odom_pub =nh.advertise<nav_msgs::Odometry>("odom", 10);
+    odom_pub =nh.advertise<nav_msgs::Odometry>("odom_wheel", 10);
     tf::TransformBroadcaster odom_broadcaster;
     pid_sub = nh.subscribe("pid_float",200,&IPSG::CImuCommand::pid_write_callback,this);
     //串口初始化
@@ -299,15 +315,15 @@ bool IPSG::CImuCommand::RUN()
             //for odom
             current_time = ros::Time::now();
             odom_count++;
-            if(odom_count>10)
+            if(odom_count!=10)
             {
-             odom_count=0;
+             //odom_count=0;
             //compute odometry in a typical way given the velocities of the robot
             float dt = (current_time - last_time).toSec();
             float delta_x = (Vx_float * cos(th)) * dt;
             float delta_y = (Vy_float * sin(th)) * dt;
             float delta_th = Vz_float * dt;
-
+       
              x += delta_x;
              y += delta_y;
              th += delta_th;
@@ -317,8 +333,8 @@ bool IPSG::CImuCommand::RUN()
              //first, we'll publish the transform over tf
              geometry_msgs::TransformStamped odom_trans;
              odom_trans.header.stamp = current_time;
-             odom_trans.header.frame_id = "odom";
-             odom_trans.child_frame_id = "base_link";
+             odom_trans.header.frame_id = "wheel_link";
+             odom_trans.child_frame_id = "base_footprint";
              /*在这里，我们将创建一个TransformStamped消息，通过tf发送。
             我们要发布在current_time时刻的从"odom"坐标系到“base_link”坐标系的变换。
             因此，我们将相应地设置消息头和child_frame_id，
@@ -336,7 +352,7 @@ bool IPSG::CImuCommand::RUN()
             //next, we'll publish the odometry message over ROS
             nav_msgs::Odometry odom;
         odom.header.stamp = current_time;
-        odom.header.frame_id = "odom";
+        odom.header.frame_id = "wheel_link";
         //还需要发布nav_msgs/Odometry消息，以便导航包可以从中获取速度信息。
         //将消息的header设置为current_time和“odom”坐标系。
         //set the position
@@ -346,7 +362,7 @@ bool IPSG::CImuCommand::RUN()
         odom.pose.pose.orientation = odom_quat;
  
         //set the velocity
-        odom.child_frame_id = "base_link";
+        odom.child_frame_id = "base_footprint";
         odom.twist.twist.linear.x = Vx_float;
         odom.twist.twist.linear.y = Vy_float;
         odom.twist.twist.angular.z= Vz_float;
@@ -354,7 +370,40 @@ bool IPSG::CImuCommand::RUN()
         //我们将消息的child_frame_id设置为“base_link”坐标系，
         //因为我们要发送速度信息到这个坐标系。
  
+        //fill cov
+    if((Vx_float==0)&&(Vy_float==0)&&(Vz_float==0))
+    {
+    odom.twist.covariance = { 1e-9, 0, 0, 0, 0, 0, 
+                              0, 1e-3, 1e-9, 0, 0, 0, 
+                              0, 0, 1e6, 0, 0, 0,
+                              0, 0, 0, 1e6, 0, 0, 
+                              0, 0, 0, 0, 1e6, 0, 
+                              0, 0, 0, 0, 0, 1e-9 };
+    odom.pose.covariance = { 1e-9, 0, 0, 0, 0, 0, 
+                              0, 1e-3, 1e-9, 0, 0, 0, 
+                              0, 0, 1e6, 0, 0, 0,
+                              0, 0, 0, 1e6, 0, 0, 
+                              0, 0, 0, 0, 1e6, 0, 
+                              0, 0, 0, 0, 0, 1e-9 };
+    }
+    else
+    {
+    odom.twist.covariance = { 1e-3, 0, 0, 0, 0, 0, 
+                              0, 1e-3, 1e-9, 0, 0, 0, 
+                              0, 0, 1e6, 0, 0, 0,
+                              0, 0, 0, 1e6, 0, 0, 
+                              0, 0, 0, 0, 1e6, 0, 
+                              0, 0, 0, 0, 0, 1e-3 };
+    odom.pose.covariance = { 1e-3, 0, 0, 0, 0, 0, 
+                              0, 1e-3, 1e-9, 0, 0, 0, 
+                              0, 0, 1e6, 0, 0, 0,
+                              0, 0, 0, 1e6, 0, 0, 
+                              0, 0, 0, 0, 1e6, 0, 
+                              0, 0, 0, 0, 0, 1e-3 };
+
+    }
         //publish the message
+        ROS_INFO("The message was truncated===============================");
         odom_pub.publish(odom);
         last_time = current_time;
     }
