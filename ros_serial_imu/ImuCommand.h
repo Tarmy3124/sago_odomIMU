@@ -186,6 +186,7 @@ namespace IPSG
 		 *  @Notes   : None
 		 ***********************************************/
         bool display_Q4decodeData(double tmpBuffer[Q4DATA_LENGTH]);
+        bool new_odommsg_flag=false;
     private:
        // class Serial *mSerial;
         bool init_serial(void);

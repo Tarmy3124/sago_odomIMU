@@ -154,6 +154,7 @@ bool IPSG::CImuCommand::decodeFrame(unsigned char tmpBuffer[READ_BUFFERSIZE])
                      odom_Vx_char[2] = tmpBuffer[6];
                      odom_Vx_char[3] = tmpBuffer[7];
                      IPSG::CImuCommand::char2float(&Vx_float,odom_Vx_char);
+                     new_odommsg_flag=true;
 
                  } 
             case DATA_TYPE_ODOM_Vy:
@@ -292,13 +293,13 @@ bool IPSG::CImuCommand::RUN()
     
     int odom_count;
    // ros::Subscriber write_sub = nh.subscribe("write", 1000, write_callback);
-    msg_pub = nh.advertise<sensor_msgs::Imu>("imu", 100);
-    odom_pub =nh.advertise<nav_msgs::Odometry>("odom_wheel", 10);
+    msg_pub = nh.advertise<sensor_msgs::Imu>("imu_raw", 100);
+    odom_pub =nh.advertise<nav_msgs::Odometry>("odom_wheel", 100);
     tf::TransformBroadcaster odom_broadcaster;
     pid_sub = nh.subscribe("pid_float",200,&IPSG::CImuCommand::pid_write_callback,this);
     //串口初始化
     init_serial();
-    ros::Rate loop_rate(500);
+    ros::Rate loop_rate(300);
     pid_char_buffer[12]='\r';
     //for odom 
     ros::Time current_time, last_time;
@@ -314,10 +315,6 @@ bool IPSG::CImuCommand::RUN()
             ros::spinOnce();
             //for odom
             current_time = ros::Time::now();
-            odom_count++;
-            if(odom_count!=10)
-            {
-             //odom_count=0;
             //compute odometry in a typical way given the velocities of the robot
             float dt = (current_time - last_time).toSec();
             float delta_x = (Vx_float * cos(th)) * dt;
@@ -403,10 +400,10 @@ bool IPSG::CImuCommand::RUN()
 
     }
         //publish the message
-        ROS_INFO("The message was truncated===============================");
+        //ROS_INFO("The message was truncated===============================");
+
         odom_pub.publish(odom);
         last_time = current_time;
-    }
 
 
             loop_rate.sleep();
