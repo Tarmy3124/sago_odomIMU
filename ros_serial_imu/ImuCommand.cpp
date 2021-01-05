@@ -293,8 +293,8 @@ bool IPSG::CImuCommand::RUN()
     
     int odom_count;
    // ros::Subscriber write_sub = nh.subscribe("write", 1000, write_callback);
-    msg_pub = nh.advertise<sensor_msgs::Imu>("imu_raw", 100);
-    odom_pub =nh.advertise<nav_msgs::Odometry>("odom_wheel", 100);
+    msg_pub = nh.advertise<sensor_msgs::Imu>("imu_raw", 10);
+    odom_pub =nh.advertise<nav_msgs::Odometry>("odom_wheel", 10);
     tf::TransformBroadcaster odom_broadcaster;
     pid_sub = nh.subscribe("pid_float",200,&IPSG::CImuCommand::pid_write_callback,this);
     //串口初始化
