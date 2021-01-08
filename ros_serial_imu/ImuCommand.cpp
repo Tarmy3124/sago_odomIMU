@@ -200,13 +200,13 @@ bool IPSG::CImuCommand::decodeFrame(unsigned char tmpBuffer[READ_BUFFERSIZE])
         std::cout<<"数据帧头错误"<<std::endl;
         return false;
     }
-    imu_data.orientation = tf::createQuaternionMsgFromRollPitchYaw(0,0,imu_data.linear_acceleration.z);
-    imu_data.orientation_covariance = {0.05, 0, 0,
-	    			       0, 0.05, 0,
-				       0, 0, 0.05};
-    imu_data.angular_velocity_covariance = {0.01, 0, 0,
-	    				    0, 0.01, 0,
-					    0, 0, 0.01};
+    imu_data.orientation = tf::createQuaternionMsgFromRollPitchYaw(0,0,imu_data.angular_velocity.z);
+    imu_data.orientation_covariance = {1e6, 0, 0,
+	    			       0, 1e6, 0,
+				       0, 0, 1e-6};
+    imu_data.angular_velocity_covariance = {1e6, 0, 0,
+	    			            0, 1e6, 0,
+				            0, 0, 1e-6};
     imu_data.linear_acceleration_covariance = {-1, 0, 0,
 	    				        0, 0, 0,
 					        0, 0, 0};
@@ -317,10 +317,14 @@ bool IPSG::CImuCommand::RUN()
             current_time = ros::Time::now();
             //compute odometry in a typical way given the velocities of the robot
             float dt = (current_time - last_time).toSec();
-            float delta_x = (Vx_float * cos(th)) * dt;
-            float delta_y = (Vy_float * sin(th)) * dt;
             float delta_th = Vz_float * dt;
+            float delta_x = (Vx_float * cos(delta_th)) * dt-(Vy_float * sin(delta_th)) * dt;
+            float delta_y = (Vy_float * cos(delta_th)) * dt+(Vx_float * sin(delta_th)) * dt;
+
+            //累计轨迹
        
+   //          x += delta_x * cos(th) - delta_y * sin(th);
+    //         y += delta_y * cos(th) + delta_x * sin(th);
              x += delta_x;
              y += delta_y;
              th += delta_th;
@@ -330,8 +334,8 @@ bool IPSG::CImuCommand::RUN()
              //first, we'll publish the transform over tf
              geometry_msgs::TransformStamped odom_trans;
              odom_trans.header.stamp = current_time;
-             odom_trans.header.frame_id = "wheel_link";
-             odom_trans.child_frame_id = "base_footprint";
+             odom_trans.header.frame_id = "base_footprint";
+             odom_trans.child_frame_id = "wheel_link";
              /*在这里，我们将创建一个TransformStamped消息，通过tf发送。
             我们要发布在current_time时刻的从"odom"坐标系到“base_link”坐标系的变换。
             因此，我们将相应地设置消息头和child_frame_id，
@@ -349,7 +353,7 @@ bool IPSG::CImuCommand::RUN()
             //next, we'll publish the odometry message over ROS
             nav_msgs::Odometry odom;
         odom.header.stamp = current_time;
-        odom.header.frame_id = "wheel_link";
+        odom.header.frame_id = "base_footprint";
         //还需要发布nav_msgs/Odometry消息，以便导航包可以从中获取速度信息。
         //将消息的header设置为current_time和“odom”坐标系。
         //set the position
@@ -359,7 +363,7 @@ bool IPSG::CImuCommand::RUN()
         odom.pose.pose.orientation = odom_quat;
  
         //set the velocity
-        odom.child_frame_id = "base_footprint";
+        odom.child_frame_id = "wheel_link";
         odom.twist.twist.linear.x = Vx_float;
         odom.twist.twist.linear.y = Vy_float;
         odom.twist.twist.angular.z= Vz_float;
@@ -370,7 +374,13 @@ bool IPSG::CImuCommand::RUN()
         //fill cov
     if((Vx_float==0)&&(Vy_float==0)&&(Vz_float==0))
     {
-    odom.twist.covariance = { 1e-9, 0, 0, 0, 0, 0, 
+    odom.twist.covariance = { 1e-3, 0, 0, 0, 0, 0, 
+                              0, 1e-3, 1e-9, 0, 0, 0, 
+                              0, 0, 1e6, 0, 0, 0,
+                              0, 0, 0, 1e6, 0, 0, 
+                              0, 0, 0, 0, 1e6, 0, 
+                              0, 0, 0, 0, 0, 1e3 };
+  /*  odom.twist.covariance = { 1e-9, 0, 0, 0, 0, 0, 
                               0, 1e-3, 1e-9, 0, 0, 0, 
                               0, 0, 1e6, 0, 0, 0,
                               0, 0, 0, 1e6, 0, 0, 
@@ -381,11 +391,17 @@ bool IPSG::CImuCommand::RUN()
                               0, 0, 1e6, 0, 0, 0,
                               0, 0, 0, 1e6, 0, 0, 
                               0, 0, 0, 0, 1e6, 0, 
+                              0, 0, 0, 0, 0, 1e-9 };*/
+    odom.pose.covariance = { 1e-3, 0, 0, 0, 0, 0, 
+                              0, 1e-3, 1e-9, 0, 0, 0, 
+                              0, 0, 1e6, 0, 0, 0,
+                              0, 0, 0, 1e6, 0, 0, 
+                              0, 0, 0, 0, 1e6, 0, 
                               0, 0, 0, 0, 0, 1e-9 };
     }
     else
     {
-    odom.twist.covariance = { 1e-3, 0, 0, 0, 0, 0, 
+  /*  odom.twist.covariance = { 1e-3, 0, 0, 0, 0, 0, 
                               0, 1e-3, 1e-9, 0, 0, 0, 
                               0, 0, 1e6, 0, 0, 0,
                               0, 0, 0, 1e6, 0, 0, 
@@ -396,7 +412,19 @@ bool IPSG::CImuCommand::RUN()
                               0, 0, 1e6, 0, 0, 0,
                               0, 0, 0, 1e6, 0, 0, 
                               0, 0, 0, 0, 1e6, 0, 
-                              0, 0, 0, 0, 0, 1e-3 };
+                              0, 0, 0, 0, 0, 1e-3 };*/
+    odom.twist.covariance = { 1e-3, 0, 0, 0, 0, 0, 
+                              0, 1e-3, 1e-9, 0, 0, 0, 
+                              0, 0, 1e6, 0, 0, 0,
+                              0, 0, 0, 1e6, 0, 0, 
+                              0, 0, 0, 0, 1e6, 0, 
+                              0, 0, 0, 0, 0, 1e3 };
+    odom.pose.covariance = { 1e-3, 0, 0, 0, 0, 0, 
+                              0, 1e-3, 0, 0, 0, 0, 
+                              0, 0, 1e6, 0, 0, 0,
+                              0, 0, 0, 1e6, 0, 0, 
+                              0, 0, 0, 0, 1e6, 0, 
+                              0, 0, 0, 0, 0, 1e3 };
 
     }
         //publish the message
