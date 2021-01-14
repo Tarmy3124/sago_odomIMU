@@ -55,6 +55,8 @@
 
 
 //判断本帧数据类型
+#define DATA_TYPE_IMU                   (unsigned char)(91)       //接收数据的帧头
+#define DATA_TYPE_ODOM                   (unsigned char)(92)       //接收数据的帧头
 #define DATA_FrameHead                   (unsigned char)(90)       //接收数据的帧头
 #define DATA_TYPE_ACC                    (unsigned char)(21)       //该帧输出数据为加速度类型
 #define DATA_TYPE_GRY                    (unsigned char)(37)       //该帧输出数据为陀螺仪类型
@@ -122,6 +124,8 @@ namespace IPSG
 		~CImuCommand();
                void float2char(float f,unsigned char *s);
                void char2float(float *f,unsigned char *s);
+               //boost 线程消息处理函数
+               void recv_msg();
         
 
 		/***********************************************
@@ -171,6 +175,7 @@ namespace IPSG
 		 *  @Notes   : None
 		 ***********************************************/
 		bool RUN();
+                void char2float_union(float f , unsigned char source[4]);
                 void pid_write_callback(const carMsgs::pidPtr &pid_msg);
 
 
@@ -198,8 +203,10 @@ namespace IPSG
         unsigned char                pid_char_buffer[PIDCHAR_NUM];
         unsigned char                cmd_buffer[cmd_num];
         unsigned char     mulit_cmd_buffer[mulitCmd_num];
-        unsigned char          r_buffer[READ_BUFFERSIZE];
-        unsigned char          r_buffer_helper[26];
+        unsigned char          r_buffer[READ_BUFFERSIZE]={0};
+        unsigned char          r_buffer_imu[READ_BUFFERSIZE]; //IMU解析缓冲区
+        unsigned char          r_buffer_odom[READ_BUFFERSIZE]; //ODOM解析缓冲区
+        unsigned char          r_buffer_helper[26]={0};
         unsigned char          *r_buffer_handled=NULL;
         unsigned char          odom_Vx_char[4];
         unsigned char          odom_Vy_char[4];
@@ -213,6 +220,7 @@ namespace IPSG
         float                 Vy_float;
         float                 Vz_float;
         float                 x,y,th;
+        int                   bad_msg_num;
 		
 	};
 

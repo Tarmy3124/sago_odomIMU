@@ -49,10 +49,23 @@ void IPSG::CImuCommand::float2char(float f,unsigned char *s)
     *(s+3) = *(p+3);
 
 }
+//该方法可能有问题
 void IPSG::CImuCommand::char2float(float *f,unsigned char *s)
 {
     //f = (float *)s;
     memcpy(f, s, 4);
+}
+void IPSG::CImuCommand::char2float_union(float f , unsigned char source[4])
+{
+ union d{
+ unsigned char data[4];
+ float dest_data;
+ }getdata;
+ for(int i=0;i<4;i++)
+  {
+  getdata.data[i]=source[i];
+  }
+ f=getdata.dest_data;
 }
 
 bool IPSG::CImuCommand::display_decodeData(double *tmpBuffer)
@@ -92,22 +105,24 @@ bool IPSG::CImuCommand::display_Imumsg(sensor_msgs::Imu imumsg)
     std::cout<<imumsg.linear_acceleration.z<<std::endl;
 
     std::cout<<"Odom data-----------------!"<<std::endl;
-    std::cout<<Vx_float<<std::endl;
-    std::cout<<Vy_float<<std::endl;
-    std::cout<<Vz_float<<std::endl;
+    std::cout<<"xxxxxxxxxxxxxxxxxxxx"<<Vx_float<<std::endl;
+    std::cout<<"yyyyyyyyyyyyyyyyyyyy"<<Vy_float<<std::endl;
+    std::cout<<"zzzzzzzzzzzzzzzzzzzz"<<Vz_float<<std::endl;
 }
 
 bool IPSG::CImuCommand::decodeFrame(unsigned char tmpBuffer[READ_BUFFERSIZE])
 {
+    
     if(tmpBuffer[0] == DATA_FrameHead && tmpBuffer[1] == DATA_FrameHead)
     {
+
         imu_data.header.frame_id = "imu_link";
  	imu_data.header.stamp = ros::Time::now();
         switch(tmpBuffer[2])
         {
-            case DATA_TYPE_Q4:  //该帧输出数据为四元数类型
+           /* case DATA_TYPE_Q4:  //该帧输出数据为四元数类型
                 { 
-                   /* Q4[0] = (double)(tmpBuffer[4]<<8|tmpBuffer[5])/Q4_MEASURE;
+                    Q4[0] = (double)(tmpBuffer[4]<<8|tmpBuffer[5])/Q4_MEASURE;
                     Q4[1] = (double)(tmpBuffer[6]<<8|tmpBuffer[7])/Q4_MEASURE;
                     Q4[2] = (double)(tmpBuffer[8]<<8|tmpBuffer[9])/Q4_MEASURE;
                     Q4[3] = (double)(tmpBuffer[10]<<8|tmpBuffer[11])/Q4_MEASURE;
@@ -116,10 +131,10 @@ bool IPSG::CImuCommand::decodeFrame(unsigned char tmpBuffer[READ_BUFFERSIZE])
                     imu_data.orientation.x = Q4[1];
                     imu_data.orientation.y = Q4[2];
                     imu_data.orientation.z = Q4[3];
-                    imu_data.orientation.w = Q4[0];*/
+                    imu_data.orientation.w = Q4[0];
                     
                     break;
-                }
+                }*/
 
 
             case DATA_TYPE_GRY: //该帧输出数据为陀螺仪数据类型
@@ -127,7 +142,8 @@ bool IPSG::CImuCommand::decodeFrame(unsigned char tmpBuffer[READ_BUFFERSIZE])
                     GYR[0] = (short)(((uint16_t)tmpBuffer[4]<<8)|tmpBuffer[5]);
                     GYR[1] = (short)(((uint16_t)tmpBuffer[6]<<8)|tmpBuffer[7]);
                     GYR[2] = (short)(((uint16_t)tmpBuffer[8]<<8)|tmpBuffer[9]);
-                    display_decodeData(GYR);
+              
+                    //display_decodeData(GYR);
                     imu_data.angular_velocity.x = (GYR[0]/16.04*M_PI/180);
                     imu_data.angular_velocity.y = (GYR[1]/16.04*M_PI/180);
                     imu_data.angular_velocity.z = (GYR[2]/16.04*M_PI/180);
@@ -140,7 +156,8 @@ bool IPSG::CImuCommand::decodeFrame(unsigned char tmpBuffer[READ_BUFFERSIZE])
                      ACC[0] = (short)((uint16_t)tmpBuffer[4]<<8|tmpBuffer[5]);
                      ACC[1] = (short)((uint16_t)tmpBuffer[6]<<8|tmpBuffer[7]);
                      ACC[2] = (short)((uint16_t)tmpBuffer[8]<<8|tmpBuffer[9]);
-                     display_decodeData(ACC);
+                   
+                     //display_decodeData(ACC);
                      imu_data.linear_acceleration.x = (ACC[0]/2048*9.98);
                      imu_data.linear_acceleration.y = (ACC[1]/2048*9.98);
                      imu_data.linear_acceleration.z = (ACC[2]/2048*9.98);
@@ -153,29 +170,43 @@ bool IPSG::CImuCommand::decodeFrame(unsigned char tmpBuffer[READ_BUFFERSIZE])
                      odom_Vx_char[1] = tmpBuffer[5];
                      odom_Vx_char[2] = tmpBuffer[6];
                      odom_Vx_char[3] = tmpBuffer[7];
+                   //  IPSG::CImuCommand::char2float_union(Vx_float,odom_Vx_char);
                      IPSG::CImuCommand::char2float(&Vx_float,odom_Vx_char);
                      new_odommsg_flag=true;
 
                  } 
             case DATA_TYPE_ODOM_Vy:
                  {
+                     /*odom_Vy_char[0] = 0;
+                     odom_Vy_char[1] = 0;
+                     odom_Vy_char[2] = 0;
+                     odom_Vy_char[3] = 0;*/
                      odom_Vy_char[0] = tmpBuffer[4];
                      odom_Vy_char[1] = tmpBuffer[5];
                      odom_Vy_char[2] = tmpBuffer[6];
                      odom_Vy_char[3] = tmpBuffer[7];
                      IPSG::CImuCommand::char2float(&Vy_float,odom_Vy_char);
+                    // IPSG::CImuCommand::char2float_union(Vy_float,odom_Vy_char);
+                     
 
                  } 
             case DATA_TYPE_ODOM_Vz:
                  {
+                     /*odom_Vz_char[0] = 0;
+                     odom_Vz_char[1] = 0;
+                     odom_Vz_char[2] = 0;
+                     odom_Vz_char[3] = 0;*/
                      odom_Vz_char[0] = tmpBuffer[4];
                      odom_Vz_char[1] = tmpBuffer[5];
                      odom_Vz_char[2] = tmpBuffer[6];
                      odom_Vz_char[3] = tmpBuffer[7];
-                     IPSG::CImuCommand::char2float(&Vz_float,odom_Vz_char);
+
+                    IPSG::CImuCommand::char2float(&Vz_float,odom_Vz_char);
+                   //  IPSG::CImuCommand::char2float_union(Vz_float,odom_Vz_char);
+                     
                  } 
 
-            case DATA_TYPE_MAG:  {std::cout<<"未更新DATA_TYPE_MAG解码程序！"<<std::endl;break;}   //该帧输出数据为磁力计类型
+           // case DATA_TYPE_MAG:  {std::cout<<"未更新DATA_TYPE_MAG解码程序！"<<std::endl;break;}   //该帧输出数据为磁力计类型
 
             case DATA_TYPE_EULAR:  //解码欧拉角原始数据
                 { 
@@ -186,11 +217,11 @@ bool IPSG::CImuCommand::decodeFrame(unsigned char tmpBuffer[READ_BUFFERSIZE])
                      break;
                 }
 
-            case DATA_TYPE_STOP: {std::cout<<"未更新DATA_TYPE_STOP解码程序！"<<std::endl;break;} //该帧输出数据为保留不用类型
+         //   case DATA_TYPE_STOP: {std::cout<<"未更新DATA_TYPE_STOP解码程序！"<<std::endl;break;} //该帧输出数据为保留不用类型
 
-            case DATA_TYPE_PRECISION:{std::cout<<"未更新DATA_TYPE_PRECISION解码程序！"<<std::endl;break;}  //该帧输出数据为传感器精度，频率类型
+         //   case DATA_TYPE_PRECISION:{std::cout<<"未更新DATA_TYPE_PRECISION解码程序！"<<std::endl;break;}  //该帧输出数据为传感器精度，频率类型
 
-            case DATA_TYPE_RANGE: {std::cout<<"未更新DATA_TYPE_RANGE解码程序！"<<std::endl;break;}  //该帧输出数据为传感器量程
+        //    case DATA_TYPE_RANGE: {std::cout<<"未更新DATA_TYPE_RANGE解码程序！"<<std::endl;break;}  //该帧输出数据为传感器量程
             default: break;
         }
 
@@ -201,15 +232,15 @@ bool IPSG::CImuCommand::decodeFrame(unsigned char tmpBuffer[READ_BUFFERSIZE])
         return false;
     }
     imu_data.orientation = tf::createQuaternionMsgFromRollPitchYaw(0,0,imu_data.angular_velocity.z);
-    imu_data.orientation_covariance = {1e6, 0, 0,
-	    			       0, 1e6, 0,
-				       0, 0, 1e-6};
-    imu_data.angular_velocity_covariance = {1e6, 0, 0,
-	    			            0, 1e6, 0,
-				            0, 0, 1e-6};
-    imu_data.linear_acceleration_covariance = {-1, 0, 0,
-	    				        0, 0, 0,
-					        0, 0, 0};
+    imu_data.orientation_covariance = {1e9, 0, 0,
+	    			       0, 1e9, 0,
+				       0, 0, 1e-9};
+    imu_data.angular_velocity_covariance = {1e9, 0, 0,
+	    			            0, 1e9, 0,
+				            0, 0, 1e-9};
+    imu_data.linear_acceleration_covariance = {1e6, 0, 0,
+	    				        0,1e6, 0,
+					        0, 0, 1e6};
 
     msg_pub.publish(imu_data);
     return true;
@@ -227,22 +258,25 @@ bool IPSG::CImuCommand::cmdFrame(unsigned char imucmd)
     int i=0;
 //tarmychange
     //ser.read(r_buffer,READ_BUFFERSIZE);
+
     boost::asio::read(*sp_.get(), boost::asio::buffer(r_buffer,READ_BUFFERSIZE), ec_);
     if(r_buffer[12]!=DATA_TYPE_STOP)
     {
       for (;i<26;i++)
      {
-      if(r_buffer[i]=DATA_TYPE_STOP)break;
+      if(r_buffer[i]==DATA_TYPE_STOP)break;
 
      }
 //tarmychange
     //ser.read(r_buffer_helper,READ_BUFFERSIZE+i+1);
     boost::asio::read(*sp_.get(), boost::asio::buffer(r_buffer_helper,READ_BUFFERSIZE+i+1), ec_);
     r_buffer_handled=(&r_buffer_helper[i+1]);
+    //if(r_buffer_helper[i+13]!=DATA_TYPE_STOP)return false;
     decodeFrame(r_buffer_handled);
-   ROS_INFO("The message was truncated");
-    }else
-    decodeFrame(r_buffer);
+   //ROS_INFO("The message was truncated");
+    }else{
+     decodeFrame(r_buffer);
+    }
     return true;
 }
 
@@ -255,14 +289,15 @@ bool IPSG::CImuCommand::muliteCmdFrame(unsigned char imucmd1,unsigned char imucm
 
     //第二个指令
     //cmdFrame(imucmd2);
-    ROS_INFO("OUTPUT_GYR");
+ //   ROS_INFO("OUTPUT_GYR");
 
     //第三个指令
     cmdFrame(imucmd3);
-    ROS_INFO("OUTPUT_ACC");
+  //  ROS_INFO("OUTPUT_ACC");
 
 return true;
 }
+
 
 
 void IPSG::CImuCommand::pid_write_callback(const carMsgs::pidPtr &pid_msg)
@@ -287,14 +322,20 @@ void IPSG::CImuCommand::pid_write_callback(const carMsgs::pidPtr &pid_msg)
        boost::asio::write(*sp_.get(),boost::asio::buffer(pid_char_buffer,13),ec_);
       }
 }
+//在线程中执行
+void IPSG::CImuCommand::recv_msg()
+{
+
+    
+}
 bool IPSG::CImuCommand::RUN()
 {   
     ros::NodeHandle nh;
     
     int odom_count;
    // ros::Subscriber write_sub = nh.subscribe("write", 1000, write_callback);
-    msg_pub = nh.advertise<sensor_msgs::Imu>("imu_raw", 10);
-    odom_pub =nh.advertise<nav_msgs::Odometry>("odom_wheel", 10);
+    msg_pub = nh.advertise<sensor_msgs::Imu>("imu_raw", 1000);
+    odom_pub =nh.advertise<nav_msgs::Odometry>("odom_wheel", 5000);
     tf::TransformBroadcaster odom_broadcaster;
     pid_sub = nh.subscribe("pid_float",200,&IPSG::CImuCommand::pid_write_callback,this);
     //串口初始化
@@ -305,14 +346,16 @@ bool IPSG::CImuCommand::RUN()
     ros::Time current_time, last_time;
     current_time = ros::Time::now();
     last_time = ros::Time::now();
-
-    while(ros::ok())
+while(ros::ok())
     {
 
             muliteCmdFrame(CMD_PULL_OUTPUT_Q4,CMD_PULL_OUTPUT_GYR,CMD_PULL_OUTPUT_ACC);
+          //  if(Vy_float!=0)std::cout<<"some error  occurs================"<<std::endl;
             display_Imumsg(imu_data);
-            //msg_pub.publish(imu_data);
-            ros::spinOnce();
+           //msg_pub.publish(imu_data);
+
+            //ros::spinOnce();
+  //std::cout<<"come back=-------------------------------------------------------------------";
             //for odom
             current_time = ros::Time::now();
             //compute odometry in a typical way given the velocities of the robot
@@ -374,13 +417,7 @@ bool IPSG::CImuCommand::RUN()
         //fill cov
     if((Vx_float==0)&&(Vy_float==0)&&(Vz_float==0))
     {
-    odom.twist.covariance = { 1e-3, 0, 0, 0, 0, 0, 
-                              0, 1e-3, 1e-9, 0, 0, 0, 
-                              0, 0, 1e6, 0, 0, 0,
-                              0, 0, 0, 1e6, 0, 0, 
-                              0, 0, 0, 0, 1e6, 0, 
-                              0, 0, 0, 0, 0, 1e3 };
-  /*  odom.twist.covariance = { 1e-9, 0, 0, 0, 0, 0, 
+    odom.twist.covariance = { 1e-9, 0, 0, 0, 0, 0, 
                               0, 1e-3, 1e-9, 0, 0, 0, 
                               0, 0, 1e6, 0, 0, 0,
                               0, 0, 0, 1e6, 0, 0, 
@@ -391,36 +428,18 @@ bool IPSG::CImuCommand::RUN()
                               0, 0, 1e6, 0, 0, 0,
                               0, 0, 0, 1e6, 0, 0, 
                               0, 0, 0, 0, 1e6, 0, 
-                              0, 0, 0, 0, 0, 1e-9 };*/
-    odom.pose.covariance = { 1e-3, 0, 0, 0, 0, 0, 
-                              0, 1e-3, 1e-9, 0, 0, 0, 
-                              0, 0, 1e6, 0, 0, 0,
-                              0, 0, 0, 1e6, 0, 0, 
-                              0, 0, 0, 0, 1e6, 0, 
                               0, 0, 0, 0, 0, 1e-9 };
-    }
-    else
-    {
-  /*  odom.twist.covariance = { 1e-3, 0, 0, 0, 0, 0, 
-                              0, 1e-3, 1e-9, 0, 0, 0, 
-                              0, 0, 1e6, 0, 0, 0,
-                              0, 0, 0, 1e6, 0, 0, 
-                              0, 0, 0, 0, 1e6, 0, 
-                              0, 0, 0, 0, 0, 1e-3 };
-    odom.pose.covariance = { 1e-3, 0, 0, 0, 0, 0, 
-                              0, 1e-3, 1e-9, 0, 0, 0, 
-                              0, 0, 1e6, 0, 0, 0,
-                              0, 0, 0, 1e6, 0, 0, 
-                              0, 0, 0, 0, 1e6, 0, 
-                              0, 0, 0, 0, 0, 1e-3 };*/
+    }else{
+  
+
     odom.twist.covariance = { 1e-3, 0, 0, 0, 0, 0, 
-                              0, 1e-3, 1e-9, 0, 0, 0, 
+                              0, 1e-3, 0, 0, 0, 0, 
                               0, 0, 1e6, 0, 0, 0,
                               0, 0, 0, 1e6, 0, 0, 
                               0, 0, 0, 0, 1e6, 0, 
                               0, 0, 0, 0, 0, 1e3 };
-    odom.pose.covariance = { 1e-3, 0, 0, 0, 0, 0, 
-                              0, 1e-3, 0, 0, 0, 0, 
+    odom.pose.covariance = { 1e-6, 0, 0,  0, 0, 0, 
+                              0, 1e-6, 0, 0, 0, 0, 
                               0, 0, 1e6, 0, 0, 0,
                               0, 0, 0, 1e6, 0, 0, 
                               0, 0, 0, 0, 1e6, 0, 
@@ -433,9 +452,11 @@ bool IPSG::CImuCommand::RUN()
         odom_pub.publish(odom);
         last_time = current_time;
 
-
-            loop_rate.sleep();
+     //   loop_rate.sleep();
     }
+     	//串口接收线程
+       //boost::thread recv_thread(boost::bind(&IPSG::CImuCommand::recv_msg,this));
+    
 
         return true;
 }
